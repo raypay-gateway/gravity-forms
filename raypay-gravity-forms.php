@@ -911,7 +911,7 @@ class GF_Gateway_RayPay
                 'timeout' => 15,
             );
 
-            $response = self::call_gateway_endpoint( 'http://185.165.118.211:14000/raypay/api/v1/Payment/getPaymentTokenWithUserID', $args );
+            $response = self::call_gateway_endpoint( 'https://api.raypay.ir/raypay/api/v1/Payment/getPaymentTokenWithUserID', $args );
             $http_status = wp_remote_retrieve_response_code( $response );
             $result      = wp_remote_retrieve_body( $response );
             $result      = json_decode( $result );
@@ -1065,7 +1065,7 @@ class GF_Gateway_RayPay
                         'headers' => $headers,
                         'timeout' => 15,
                     );
-                    $response = self::call_gateway_endpoint( 'http://185.165.118.211:14000/raypay/api/v1/Payment/checkInvoice?pInvoiceID=' . $invoice_id, $args );
+                    $response = self::call_gateway_endpoint( 'https://api.raypay.ir/raypay/api/v1/Payment/checkInvoice?pInvoiceID=' . $invoice_id, $args );
 
                     $http_status = wp_remote_retrieve_response_code( $response );
                     $result      = wp_remote_retrieve_body( $response );
