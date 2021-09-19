@@ -16,13 +16,13 @@ RayPay provides some payment services and this plugin enables the RayPay's payme
 
 == Installation ==
 
-After creating a web service on https://raypay.ir and getting an getting an UserID and AcceptorCode, follow this instruction:
+After creating a web service on https://raypay.ir and getting an getting an UserID and MarketingID, follow this instruction:
 
 1. Activate plugin RayPay for Gravity Forms.
 2. Go tho Gravity Forms > Settings > Payments.
 3. Enable RayPay payment gateway.
 4. Go to Manage.
-5. Enter your UserID and AcceptorCode.
+5. Enter your UserID and MarketingID.
 
 Also there is a complete documentation [here](https://raypay.ir/Plugins) which helps you to install the plugin step by step.
 

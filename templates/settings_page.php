@@ -15,7 +15,8 @@ if (rgpost("uninstall")) {
 	$settings = array(
 		"gname" => rgpost('gf_RayPay_gname'),
         "user_id" => rgpost('gf_RayPay_user_id'),
-        "acceptor_code" => rgpost('gf_RayPay_acceptor_code')
+        "marketing_id" => rgpost('gf_RayPay_marketing_id'),
+        "sandbox" => rgpost('gf_RayPay_sandbox')
 	);
 	update_option("gf_RayPay_settings", array_map('sanitize_text_field', $settings));
 	if (isset($_POST["gf_RayPay_configured"])) {
@@ -83,11 +84,22 @@ if (!empty($_POST)) {
         </tr>
         <tr>
             <th scope="row"><label
-                        for="gf_RayPay_acceptor_code"><?php _e("کد پذیرنده", "gravityformsRayPay"); ?></label></th>
+                        for="gf_RayPay_marketing_id"><?php _e("شناسه کسب و کار", "gravityformsRayPay"); ?></label></th>
             <td>
                 <input style="width:350px;text-align:left;direction:ltr !important" type="text"
-                       id="gf_RayPay_acceptor_code" name="gf_RayPay_acceptor_code"
-                       value="<?php echo sanitize_text_field(rgar($settings, 'acceptor_code')) ?>"/>
+                       id="gf_RayPay_marketing_id" name="gf_RayPay_marketing_id"
+                       value="<?php echo sanitize_text_field(rgar($settings, 'marketing_id')) ?>"/>
+            </td>
+        </tr>
+        <tr>
+            <th scope="row"><label
+                        for="gf_RayPay_sandbox"><?php _e("فعالسازی SandBox", "gravityformsRayPay"); ?></label>
+            </th>
+            <td>
+                <input type="checkbox" name="gf_RayPay_sandbox"
+                       id="gf_RayPay_sandbox" <?php echo rgar($settings, 'sandbox') ? "checked='checked'" : "" ?>/>
+                <label class="inline"
+                       for="gf_RayPay_sandbox"><?php _e("بله", "gravityformsRayPay"); ?></label>
             </td>
         </tr>
 		<tr>

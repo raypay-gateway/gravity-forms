@@ -878,8 +878,8 @@ class GF_Gateway_RayPay
         GFAPI::update_entry($entry);
         $entry = GFPersian_Payments::get_entry($entry_id);
         $ReturnPath = self::Return_URL($form['id'], $entry_id);
-        $ReturnPath .= '&';
         $Mobile = GFPersian_Payments::fix_mobile($Mobile);
+        $Sandbox = self::get_sandbox();
 
         do_action('gf_gateway_request_2', $confirmation, $form, $entry, $ajax);
         do_action('gf_RayPay_request_2', $confirmation, $form, $entry, $ajax);
@@ -896,9 +896,11 @@ class GF_Gateway_RayPay
                 'userID' => self::get_user_id(),
                 'redirectUrl' => $ReturnPath,
                 'factorNumber' => strval($entry_id),
-                'acceptorCode' => self::get_acceptor_code(),
+                'marketingID' => self::get_marketing_id(),
                 'email' => $Mail,
-                'fullName' => $Name
+                'mobile' => $Mobile,
+                'fullName' => $Name,
+                'enableSandBox' => $Sandbox,
             );
 
             $headers = array(
@@ -911,7 +913,7 @@ class GF_Gateway_RayPay
                 'timeout' => 15,
             );
 
-            $response = self::call_gateway_endpoint( 'https://api.raypay.ir/raypay/api/v1/Payment/getPaymentTokenWithUserID', $args );
+            $response = self::call_gateway_endpoint( 'https://api.raypay.ir/raypay/api/v1/Payment/pay', $args );
             $http_status = wp_remote_retrieve_response_code( $response );
             $result      = wp_remote_retrieve_body( $response );
             $result      = json_decode( $result );
@@ -923,9 +925,9 @@ class GF_Gateway_RayPay
             else if ($http_status != 200 || empty($result) || empty($result->Data)) {
                 $Message = sprintf('خطا هنگام ایجاد تراکنش رخ داده است.)');
             } else {
-                $access_token = $result->Data->Accesstoken;
-                $terminal_id = $result->Data->TerminalID;
-                self::raypay_gf_send_data_shaparak($access_token,$terminal_id);
+                $token = $result->Data;
+                $link='https://my.raypay.ir/ipg?token=' . $token;
+                return self::redirect_confirmation($link, $ajax);
             }
         }
     }
@@ -941,13 +943,19 @@ class GF_Gateway_RayPay
         return $gname;
     }
 
-    public static function raypay_gf_send_data_shaparak($access_token , $terminal_id){
-        echo '<p style="color:#ff0000; font:18px Tahoma; direction:rtl;">در حال اتصال به درگاه بانکی. لطفا صبر کنید ...</p>';
-        echo '<form name="frmRayPayPayment" method="post" action=" https://mabna.shaparak.ir:8080/Pay ">';
-        echo '<input type="hidden" name="TerminalID" value="' . $terminal_id . '" />';
-        echo '<input type="hidden" name="token" value="' . $access_token . '" />';
-        echo '<input class="submit" type="submit" value="پرداخت" /></form>';
-        echo '<script>document.frmRayPayPayment.submit();</script>';
+    private static function redirect_confirmation($url, $ajax)
+    {
+        if (headers_sent() || $ajax) {
+            $confirmation = "<script type=\"text/javascript\">" . apply_filters('gform_cdata_open', '') . " function gformRedirect(){document.location.href='$url';}";
+            if (!$ajax) {
+                $confirmation .= 'gformRedirect();';
+            }
+            $confirmation .= apply_filters('gform_cdata_close', '') . '</script>';
+        } else {
+            $confirmation = array('redirect' => $url);
+        }
+
+        return $confirmation;
     }
 
     private static function Return_URL($form_id, $entry_id)
@@ -978,11 +986,17 @@ class GF_Gateway_RayPay
         return trim($user_id);
     }
 
-    private static function get_acceptor_code()
+    private static function get_marketing_id()
     {
         $settings = get_option("gf_RayPay_settings");
-        $acceptor_code = isset($settings["acceptor_code"]) ? $settings["acceptor_code"] : '';
-        return trim($acceptor_code);
+        $marketing_id = isset($settings["marketing_id"]) ? $settings["marketing_id"] : '';
+        return trim($marketing_id);
+    }
+
+    private static function get_sandbox()
+    {
+        $settings = get_option("gf_RayPay_settings");
+        return (bool)$settings["sandbox"];
     }
 
     public static function Verify()
@@ -999,7 +1013,6 @@ class GF_Gateway_RayPay
 
         $form_id    = (int) sanitize_text_field(rgget('form_id'));
         $entry_id   = (int) sanitize_text_field(rgget('entry'));
-        $invoice_id   = (string) sanitize_text_field(rgget('?invoiceID'));
         $entry      = GFPersian_Payments::get_entry($entry_id);
 
         if (is_wp_error($entry) || !empty($entry["payment_date"])
@@ -1049,23 +1062,18 @@ class GF_Gateway_RayPay
             $Transaction_ID = apply_filters(self::$author . '_gf_rand_transaction_id', GFPersian_Payments::transaction_id($entry), $form, $entry);
         }
 
-
-        $Transaction_ID = $invoice_id;
         $order_id =$entry_id;
 
-        if (!$free && !empty($invoice_id) && !empty($order_id)) {
-                    $data = array(
-                        'order_id' => strval($order_id)
-                    );
+        if (!$free && !empty($order_id)) {
                     $headers = array(
                         'Content-Type' => 'application/json',
                     );
                     $args    = array(
-                        'body'    => json_encode( $data ),
+                        'body'    => json_encode( $_POST ),
                         'headers' => $headers,
                         'timeout' => 15,
                     );
-                    $response = self::call_gateway_endpoint( 'https://api.raypay.ir/raypay/api/v1/Payment/checkInvoice?pInvoiceID=' . $invoice_id, $args );
+                    $response = self::call_gateway_endpoint( 'https://api.raypay.ir/raypay/api/v1/Payment/verify', $args );
 
                     $http_status = wp_remote_retrieve_response_code( $response );
                     $result      = wp_remote_retrieve_body( $response );
@@ -1075,9 +1083,10 @@ class GF_Gateway_RayPay
                     if ( is_wp_error( $response ) || $http_status != 200) {
                         $Status = 'Failed';
                     } else {
-                        $state = $result->Data->State;
+                        $state = $result->Data->Status;
                         $verify_order_id = $result->Data->FactorNumber;
                         $verify_amount = $result->Data->Amount;
+                        $verify_invoice_id = $result->Data->InvoiceID;
 
                         if (empty($state) || $state != 1 || empty($verify_order_id) || empty($verify_amount)) {
                             $Status = 'Failed';
@@ -1091,7 +1100,7 @@ class GF_Gateway_RayPay
         }
 
         $Status         = !empty($Status) ? $Status : 'Failed';
-        $transaction_id = !empty($Transaction_ID) ? $Transaction_ID : '';
+        $transaction_id = !empty($verify_invoice_id) ? $verify_invoice_id : '';
         $transaction_id = apply_filters(self::$author . '_gf_real_transaction_id', $transaction_id, $Status, $form, $entry);
 
         $entry["payment_date"]      = gmdate("Y-m-d H:i:s");
@@ -1116,7 +1125,7 @@ class GF_Gateway_RayPay
                 gform_delete_meta($entry['id'], 'payment_gateway');
                 $message = $Note = sprintf(__('وضعیت پرداخت : رایگان - بدون نیاز به درگاه پرداخت', "gravityformsRayPay"));
             } else {
-                $message = sprintf(__(' پرداخت شما با موفقیت انجام شد. شماره ارجاع بانکی رای پی: %s  ', "gravityformsRayPay"), $invoice_id);
+                $message = sprintf(__(' پرداخت شما با موفقیت انجام شد. شناسه ارجاع بانکی رای پی: %s  ', "gravityformsRayPay"), $invoice_id);
                 $Note = print_r($result, true);
             }
 
